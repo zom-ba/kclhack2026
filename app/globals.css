@@ -112,6 +112,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 1px solid 
 .timer-action-button svg { display: block; width: 20px; height: 20px; fill: currentColor; }
 .timer-action-button .restart-icon { fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
 .timer-action-button:first-child svg { transform: translateX(1px); }
+.timer-error { max-width: 420px; margin: 12px auto 0; color: var(--ink); font-size: 10px; }
 
 .workspace-aside { --ink: #ffffff; --paper: #000000; --panel: #000000; --line: #ffffff; --muted: #ffffff; --dim: #ffffff; display: flex; flex: 0 0 auto; align-self: flex-start; align-items: flex-start; border-left: 1px solid var(--line); background: #000000; min-height: 0; }
 .panel-navigation { display: flex; flex-direction: column; width: 61px; flex: 0 0 61px; border-right: 1px solid var(--line); }
@@ -140,6 +141,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 1px solid 
 .room-entry input::placeholder { color: var(--dim); }
 .room-entry button { flex: 0 0 68px; border: 0; border-left: 1px solid var(--line); background: transparent; color: var(--accent); font-size: 11px; cursor: pointer; }
 .room-entry button span { font-family: var(--serif); margin-left: 5px; }
+.room-entry button:disabled, .text-action:disabled { opacity: .42; cursor: default; }
 .list-heading { display: flex; justify-content: space-between; margin-bottom: 9px; }
 .room-list-item { width: 100%; display: grid; grid-template-columns: 13px 1fr auto; gap: 7px; text-align: left; align-items: center; padding: 10px 0; border: 0; background: transparent; cursor: pointer; }
 .room-list-mark, .room-arrow { color: var(--dim); font: 13px var(--serif); }
@@ -181,6 +183,32 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 1px solid 
 .profile-stats strong span { color: var(--muted); font-size: 10px; margin-right: 5px; }
 .profile-stats small { color: var(--muted); font-size: 9px; }
 .profile-panel > .text-action { width: 100%; margin-top: 8px; }
+.profile-edit { display: grid; gap: 8px; margin: 15px 0; }
+.profile-edit input, .profile-edit textarea { width: 100%; padding: 8px; border: 1px solid var(--line); border-radius: 0; background: var(--panel); color: var(--ink); font-size: 10px; }
+.profile-edit textarea { min-height: 64px; resize: vertical; }
+.profile-edit button { min-height: 34px; border: 1px solid var(--line); background: var(--panel); color: var(--ink); cursor: pointer; font-size: 10px; }
+.profile-edit button:hover { color: var(--accent); }
+.panel-empty { margin: 13px 0; color: var(--muted); font-size: 9px; }
+.panel-error { margin: 12px 0 0; color: var(--accent); font-size: 9px; line-height: 1.6; overflow-wrap: anywhere; }
+
+.auth-backdrop { position: fixed; z-index: 30; inset: 0; display: grid; place-items: center; padding: 24px; background: rgb(255 255 255 / 72%); }
+.auth-dialog { width: min(390px, 100%); border: 2px solid #ffffff; outline: 2px solid #000000; background: #000000; color: #ffffff; }
+.auth-dialog-heading { min-height: 57px; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; border-bottom: 1px solid #ffffff; }
+.auth-dialog-heading h2 { margin: 0; font-size: 18px; font-weight: 400; }
+.auth-close { width: 34px; height: 34px; border: 0; background: transparent; color: #ffffff; font-size: 25px; cursor: pointer; }
+.auth-mode-switch { display: grid; grid-template-columns: 1fr 1fr; border-bottom: 1px solid #ffffff; }
+.auth-mode-switch button { height: 44px; border: 0; border-right: 1px solid #ffffff; background: #000000; color: #ffffff; cursor: pointer; font-size: 11px; }
+.auth-mode-switch button:last-child { border-right: 0; }
+.auth-mode-switch button.is-active { background: var(--accent); color: #000000; }
+.auth-form, .auth-account { display: grid; gap: 18px; padding: 24px 20px; }
+.auth-form label { display: grid; gap: 8px; font-size: 10px; }
+.auth-form input { width: 100%; height: 42px; padding: 0 11px; border: 1px solid #ffffff; border-radius: 0; outline: 0; background: #000000; color: #ffffff; }
+.auth-form input:focus { border-color: var(--accent); }
+.auth-submit { min-height: 42px; border: 1px solid #ffffff; background: #000000; color: #ffffff; cursor: pointer; }
+.auth-submit:hover:not(:disabled) { background: var(--accent); color: #000000; }
+.auth-submit:disabled { opacity: .45; cursor: default; }
+.auth-account strong { overflow-wrap: anywhere; font-size: 13px; font-weight: 400; }
+.auth-message { margin: 0; padding: 0 20px 20px; color: var(--accent); font-size: 10px; line-height: 1.6; }
 
 
 @media (max-width: 1050px) {

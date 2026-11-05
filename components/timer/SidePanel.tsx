@@ -4,15 +4,28 @@ import ParticipantsPanel from "@/components/timer/panels/ParticipantsPanel";
 import ProfilePanel from "@/components/timer/panels/ProfilePanel";
 import RoomInfoPanel from "@/components/timer/panels/RoomInfoPanel";
 import type { PanelId } from "@/components/timer/Navigation";
+import type { RoomParticipant, RoomSummary } from "@/components/timer/types";
 
 type SidePanelProps = {
   activePanel: PanelId | null;
-};
-
-const panelContent = {
-  room: <RoomInfoPanel />,
-  participants: <ParticipantsPanel />,
-  profile: <ProfilePanel />,
+  allRoomsSeconds: number;
+  bio: string | null;
+  currentRoom: RoomSummary | null;
+  currentRoomSeconds: number;
+  displayName: string;
+  isBusy: boolean;
+  isLoggedIn: boolean;
+  isTimerRunning: boolean;
+  onCreateRoom: () => Promise<void>;
+  onJoinRoom: (roomCode: string) => Promise<boolean>;
+  onSelectRoom: (roomId: string) => void;
+  onUpdateProfile: (displayName: string, bio: string) => Promise<boolean>;
+  participantError: string;
+  participants: RoomParticipant[];
+  roomError: string;
+  rooms: RoomSummary[];
+  roomTotalSeconds: number;
+  timerSegmentStartedAt: string | null;
 };
 
 const panelTitles: Record<PanelId, string> = {
@@ -21,8 +34,64 @@ const panelTitles: Record<PanelId, string> = {
   profile: "プロフィール",
 };
 
-export default function SidePanel({ activePanel }: SidePanelProps) {
+export default function SidePanel({
+  activePanel,
+  allRoomsSeconds,
+  bio,
+  currentRoom,
+  currentRoomSeconds,
+  displayName,
+  isBusy,
+  isLoggedIn,
+  isTimerRunning,
+  onCreateRoom,
+  onJoinRoom,
+  onSelectRoom,
+  onUpdateProfile,
+  participantError,
+  participants,
+  roomError,
+  rooms,
+  roomTotalSeconds,
+  timerSegmentStartedAt,
+}: SidePanelProps) {
   if (!activePanel) return null;
+
+  const panelContent = {
+    room: (
+      <RoomInfoPanel
+        currentRoom={currentRoom}
+        error={roomError}
+        isBusy={isBusy}
+        isLoggedIn={isLoggedIn}
+        onCreate={onCreateRoom}
+        onJoin={onJoinRoom}
+        onSelect={onSelectRoom}
+        rooms={rooms}
+      />
+    ),
+    participants: (
+      <ParticipantsPanel
+        currentRoom={currentRoom}
+        error={participantError}
+        isTimerRunning={isTimerRunning}
+        participants={participants}
+        roomTotalSeconds={roomTotalSeconds}
+        timerSegmentStartedAt={timerSegmentStartedAt}
+      />
+    ),
+    profile: (
+      <ProfilePanel
+        allRoomsSeconds={allRoomsSeconds}
+        bio={bio}
+        currentRoomCode={currentRoom?.roomCode ?? null}
+        currentRoomSeconds={currentRoomSeconds}
+        displayName={displayName}
+        isLoggedIn={isLoggedIn}
+        onUpdate={onUpdateProfile}
+      />
+    ),
+  };
 
   return (
     <section aria-label={panelTitles[activePanel]} className="side-panel">

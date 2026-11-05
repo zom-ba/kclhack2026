@@ -1,9 +1,16 @@
 "use client";
 
 import { useRef, useState, type PointerEvent } from "react";
+import AuthDialog from "@/components/auth/AuthDialog";
+import useAuth from "@/components/auth/useAuth";
 import Navigation, { type PanelId } from "@/components/timer/Navigation";
 import SidePanel from "@/components/timer/SidePanel";
 import useCountdownTimer from "@/components/timer/useCountdownTimer";
+import useProfileData from "@/components/timer/useProfileData";
+import useRoomParticipants from "@/components/timer/useRoomParticipants";
+import useRoomPresence from "@/components/timer/useRoomPresence";
+import useRooms from "@/components/timer/useRooms";
+import useRoomTimer from "@/components/timer/useRoomTimer";
 
 const INITIAL_SECONDS = 25 * 60;
 type ClickEffect = { id: number; x: number; y: number };
@@ -16,9 +23,31 @@ function formatTime(seconds: number) {
 
 export default function TimerWorkspace() {
   const [activePanel, setActivePanel] = useState<PanelId | null>(null);
-  const { remaining, isRunning, toggle, reset } = useCountdownTimer(INITIAL_SECONDS);
+  const [isAuthOpen, setIsAuthOpen] = useState(false);
+  const { isLoading: isAuthLoading, supabase, user } = useAuth();
+  const guestTimer = useCountdownTimer(INITIAL_SECONDS);
+  const roomsState = useRooms(user, supabase);
+  const sharedTimer = useRoomTimer(roomsState.currentRoomId, user?.id ?? null, supabase);
+  const onlineUsers = useRoomPresence(roomsState.currentRoomId, user, supabase);
+  const participantState = useRoomParticipants(roomsState.currentRoomId, onlineUsers, supabase);
+  const profile = useProfileData(user, roomsState.currentRoomId, supabase);
   const [clickEffects, setClickEffects] = useState<ClickEffect[]>([]);
   const nextEffectId = useRef(0);
+
+  const hasSharedTimer = Boolean(user && roomsState.currentRoom);
+  const remaining = hasSharedTimer ? sharedTimer.remaining : guestTimer.remaining;
+  const isRunning = hasSharedTimer ? sharedTimer.isRunning : guestTimer.isRunning;
+  const displayName = profile.displayName
+    || (typeof user?.user_metadata.display_name === "string" ? user.user_metadata.display_name : "")
+    || user?.email?.split("@")[0]
+    || "ログイン";
+  const avatarText = user ? displayName.slice(0, 1).toUpperCase() : "·";
+  const timerSegmentStartedAt = sharedTimer.timer?.status === "running" && sharedTimer.timer.ends_at
+    ? new Date(
+      new Date(sharedTimer.timer.ends_at).getTime()
+      - sharedTimer.timer.remaining_seconds * 1000,
+    ).toISOString()
+    : null;
 
   function togglePanel(panel: PanelId) {
     setActivePanel((current) => current === panel ? null : panel);
@@ -33,6 +62,19 @@ export default function TimerWorkspace() {
     };
     setClickEffects((effects) => [...effects.slice(-7), effect]);
   }
+
+  function toggleTimer() {
+    if (hasSharedTimer) void sharedTimer.toggle();
+    else guestTimer.toggle();
+  }
+
+  function resetTimer() {
+    if (hasSharedTimer) void sharedTimer.reset();
+    else guestTimer.reset();
+  }
+
+  const timerIsBusy = hasSharedTimer
+    && (sharedTimer.isLoading || sharedTimer.isMutating || !sharedTimer.timer);
 
   return (
     <main className={`timer-app${activePanel ? " panel-is-open" : ""}`} onPointerDown={showClickEffect}>
@@ -64,13 +106,13 @@ export default function TimerWorkspace() {
         <a aria-label="EveryTick ホーム" className="wordmark" href="#">
           EveryTick
         </a>
-        <button className="account-button" type="button">
-          <span className="mini-avatar">K</span><span>堂城 奏羽</span>
+        <button className="account-button" onClick={() => setIsAuthOpen(true)} type="button">
+          <span className="mini-avatar">{avatarText}</span><span>{isAuthLoading ? "..." : displayName}</span>
         </button>
       </header>
 
       <div className="work-area">
-        <section aria-label="共有タイマー" className="timer-stage">
+        <section aria-label={hasSharedTimer ? "共有タイマー" : "単体タイマー"} className="timer-stage">
           <div aria-hidden="true" className="timer-ornaments">
             <div className="stage-rule" />
             <div className="ornament-pattern pattern-cross pattern-top-left">
@@ -107,26 +149,53 @@ export default function TimerWorkspace() {
               </svg>
             </div>
             <div className="timer-actions">
-              <button aria-label={isRunning ? "停止" : "再生"} className="timer-action-button" disabled={remaining === 0} onClick={toggle} title={isRunning ? "停止" : "再生"} type="button">
+              <button aria-label={isRunning ? "停止" : "再生"} className="timer-action-button" disabled={remaining === 0 || timerIsBusy} onClick={toggleTimer} title={isRunning ? "停止" : "再生"} type="button">
                 {isRunning ? (
                   <svg aria-hidden="true" viewBox="0 0 24 24"><rect x="6" y="6" width="12" height="12" /></svg>
                 ) : (
                   <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M8 5.8a1 1 0 0 1 1.5-.86l10 6.2a1 1 0 0 1 0 1.72l-10 6.2a1 1 0 0 1-1.5-.86z" /></svg>
                 )}
               </button>
-              <button aria-label="リスタート" className="timer-action-button" onClick={reset} title="リスタート" type="button">
+              <button aria-label="リスタート" className="timer-action-button" disabled={timerIsBusy} onClick={resetTimer} title="リスタート" type="button">
                 <svg aria-hidden="true" className="restart-icon" viewBox="0 0 24 24"><path d="M20 11a8 8 0 1 0 1 5" /><path d="M20 4v7h-7" /></svg>
               </button>
             </div>
+            {hasSharedTimer && sharedTimer.error ? <p className="timer-error" role="status">{sharedTimer.error}</p> : null}
           </div>
 
         </section>
 
         <aside className="workspace-aside">
           <Navigation activePanel={activePanel} onSelect={togglePanel} />
-          <SidePanel activePanel={activePanel} />
+          <SidePanel
+            activePanel={activePanel}
+            allRoomsSeconds={profile.allRoomsSeconds}
+            bio={profile.bio}
+            currentRoom={roomsState.currentRoom}
+            currentRoomSeconds={profile.currentRoomSeconds}
+            displayName={displayName}
+            isBusy={roomsState.isLoading || roomsState.isMutating}
+            isLoggedIn={Boolean(user)}
+            isTimerRunning={isRunning}
+            onCreateRoom={roomsState.createRoom}
+            onJoinRoom={roomsState.joinRoom}
+            onSelectRoom={roomsState.selectRoom}
+            onUpdateProfile={profile.updateProfile}
+            participantError={participantState.error}
+            participants={participantState.participants}
+            roomError={roomsState.error}
+            rooms={roomsState.rooms}
+            roomTotalSeconds={participantState.roomTotalSeconds}
+            timerSegmentStartedAt={timerSegmentStartedAt}
+          />
         </aside>
       </div>
+      <AuthDialog
+        isOpen={isAuthOpen}
+        onClose={() => setIsAuthOpen(false)}
+        supabase={supabase}
+        user={user}
+      />
     </main>
   );
 }
