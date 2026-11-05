@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import type { User } from "@supabase/supabase-js";
+import type { AuthChangeEvent, Session, User } from "@supabase/supabase-js";
 import { createClient } from "@/src/lib/supabase/client";
 
 export default function useAuth() {
@@ -12,16 +12,22 @@ export default function useAuth() {
   useEffect(() => {
     let isMounted = true;
 
-    supabase.auth.getUser().then(({ data }) => {
+    async function loadUser() {
+      const { data } = await supabase.auth.getUser();
+
       if (!isMounted) return;
       setUser(data.user ?? null);
       setIsLoading(false);
-    });
+    }
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_event, session) => {
-      setUser(session?.user ?? null);
-      setIsLoading(false);
-    });
+    void loadUser();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event: AuthChangeEvent, session: Session | null) => {
+        setUser(session?.user ?? null);
+        setIsLoading(false);
+      },
+    );
 
     return () => {
       isMounted = false;
