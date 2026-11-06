@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type PointerEvent } from "react";
+import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import AuthDialog from "@/components/auth/AuthDialog";
 import useAuth from "@/components/auth/useAuth";
 import Navigation, { type PanelId } from "@/components/timer/Navigation";
@@ -13,7 +13,13 @@ import useRooms from "@/components/timer/useRooms";
 import useRoomTimer from "@/components/timer/useRoomTimer";
 
 const INITIAL_SECONDS = 25 * 60;
-type ClickEffect = { id: number; x: number; y: number };
+type ClickParticle = { id: number; rotation: number; x: number; y: number };
+type ClickEffect = { id: number; particles: ClickParticle[]; x: number; y: number };
+type ClickParticleStyle = CSSProperties & {
+  "--particle-angle": string;
+  "--particle-x": string;
+  "--particle-y": string;
+};
 
 function formatTime(seconds: number) {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -55,8 +61,23 @@ export default function TimerWorkspace() {
 
   function showClickEffect(event: PointerEvent<HTMLElement>) {
     const bounds = event.currentTarget.getBoundingClientRect();
+    const particleCount = 3 + Math.floor(Math.random() * 3);
+    const directionOffset = Math.random() * Math.PI * 2;
     const effect = {
       id: nextEffectId.current++,
+      particles: Array.from({ length: particleCount }, (_, index) => {
+        const direction = directionOffset
+          + (Math.PI * 2 * index) / particleCount
+          + (Math.random() - 0.5) * 0.6;
+        const distance = 24 + Math.random() * 20;
+
+        return {
+          id: index,
+          rotation: Math.random() * 360,
+          x: Math.cos(direction) * distance,
+          y: Math.sin(direction) * distance,
+        };
+      }),
       x: event.clientX - bounds.left,
       y: event.clientY - bounds.top,
     };
@@ -77,28 +98,30 @@ export default function TimerWorkspace() {
     && (sharedTimer.isLoading || sharedTimer.isMutating || !sharedTimer.timer);
 
   return (
-    <main className={`timer-app${activePanel ? " panel-is-open" : ""}`} onPointerDown={showClickEffect}>
+    <main className="timer-app" onPointerDown={showClickEffect}>
       <div aria-hidden="true" className="click-effects">
         {clickEffects.map((effect) => (
           <span
             className="click-effect"
             key={effect.id}
             onAnimationEnd={(event) => {
-              if (event.target === event.currentTarget && event.animationName === "click-fade") {
+              if (event.target === event.currentTarget && event.animationName === "click-effect-life") {
                 setClickEffects((effects) => effects.filter(({ id }) => id !== effect.id));
               }
             }}
             style={{ left: effect.x, top: effect.y }}
           >
-            <svg viewBox="0 0 64 64">
-              <defs>
-                <mask id={`click-mask-${effect.id}`} maskUnits="userSpaceOnUse" x="0" y="0" width="64" height="64">
-                  <rect width="64" height="64" fill="white" />
-                  <circle className="click-hole" cx="32" cy="32" r="20" fill="black" />
-                </mask>
-              </defs>
-              <circle className="click-disk" cx="32" cy="32" r="20" fill="currentColor" mask={`url(#click-mask-${effect.id})`} />
-            </svg>
+            {effect.particles.map((particle) => (
+              <span
+                className="click-particle"
+                key={particle.id}
+                style={{
+                  "--particle-angle": `${particle.rotation}deg`,
+                  "--particle-x": `${particle.x}px`,
+                  "--particle-y": `${particle.y}px`,
+                } as ClickParticleStyle}
+              />
+            ))}
           </span>
         ))}
       </div>
