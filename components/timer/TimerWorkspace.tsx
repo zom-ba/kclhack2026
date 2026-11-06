@@ -14,6 +14,8 @@ import useRooms from "@/components/timer/useRooms";
 import useRoomTimer from "@/components/timer/useRoomTimer";
 
 const INITIAL_SECONDS = 25 * 60;
+const MIN_TIMER_MINUTES = 1;
+const MAX_TIMER_MINUTES = 99;
 type ClickParticle = { id: number; rotation: number; x: number; y: number };
 type ClickEffect = { id: number; particles: ClickParticle[]; x: number; y: number };
 type ClickParticleStyle = CSSProperties & {
@@ -46,6 +48,9 @@ export default function TimerWorkspace() {
   const hasSharedTimer = Boolean(user && roomsState.currentRoom);
   const remaining = hasSharedTimer ? sharedTimer.remaining : guestTimer.remaining;
   const isRunning = hasSharedTimer ? sharedTimer.isRunning : guestTimer.isRunning;
+  const timerStatus = hasSharedTimer ? sharedTimer.status : guestTimer.status;
+  const timerMinutes = Math.floor(remaining / 60);
+  const canSetTimerMinutes = timerStatus === "idle";
   const displayName = profile.displayName
     || (typeof user?.user_metadata.display_name === "string" ? user.user_metadata.display_name : "")
     || user?.email?.split("@")[0]
@@ -118,6 +123,18 @@ export default function TimerWorkspace() {
     else guestTimer.reset();
   }
 
+  function changeTimerMinutes(change: number) {
+    if (!canSetTimerMinutes) return;
+    const nextMinutes = Math.min(
+      MAX_TIMER_MINUTES,
+      Math.max(MIN_TIMER_MINUTES, timerMinutes + change),
+    );
+    if (nextMinutes === timerMinutes) return;
+
+    if (hasSharedTimer) void sharedTimer.setMinutes(nextMinutes);
+    else guestTimer.setMinutes(nextMinutes);
+  }
+
   const timerIsBusy = hasSharedTimer
     && (sharedTimer.isLoading || sharedTimer.isMutating || !sharedTimer.timer);
 
@@ -177,6 +194,24 @@ export default function TimerWorkspace() {
           <div className="timer-core">
             <div className="timer-readout">
               <span aria-hidden="true" className="timer-circle" />
+              {canSetTimerMinutes ? (
+                <div className="timer-minute-controls">
+                  <button
+                    aria-label="タイマーを1分増やす"
+                    className="timer-minute-control is-increase"
+                    disabled={timerIsBusy || timerMinutes >= MAX_TIMER_MINUTES}
+                    onClick={() => changeTimerMinutes(1)}
+                    type="button"
+                  />
+                  <button
+                    aria-label="タイマーを1分減らす"
+                    className="timer-minute-control is-decrease"
+                    disabled={timerIsBusy || timerMinutes <= MIN_TIMER_MINUTES}
+                    onClick={() => changeTimerMinutes(-1)}
+                    type="button"
+                  />
+                </div>
+              ) : null}
               <svg
                 aria-label={formatTime(remaining)}
                 className="timer-display"

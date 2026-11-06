@@ -83,6 +83,35 @@ export default function useRoomTimer(
     if (controlRequestRef.current === requestId) setIsMutating(false);
   }, [applyResponse, roomId, supabase]);
 
+  const setMinutes = useCallback(async (minutes: number) => {
+    if (
+      !roomId
+      || activeTimer?.status !== "idle"
+      || !Number.isInteger(minutes)
+      || minutes < 1
+      || minutes > 99
+    ) return;
+
+    const requestId = ++controlRequestRef.current;
+    setIsMutating(true);
+    setError("");
+
+    const { data, error: rpcError } = await supabase.rpc("set_room_timer_duration", {
+      requested_minutes: minutes,
+      target_room_id: roomId,
+    });
+
+    if (selectedRoomIdRef.current !== roomId) return;
+
+    if (rpcError) {
+      setError(rpcError.message);
+    } else if (isTimerResponse(data) && data.timer.room_id === roomId) {
+      applyResponse(data);
+    }
+
+    if (controlRequestRef.current === requestId) setIsMutating(false);
+  }, [activeTimer?.status, applyResponse, roomId, supabase]);
+
   useEffect(() => {
     if (!roomId || !userId) {
       setTimer(null);
@@ -247,6 +276,7 @@ export default function useRoomTimer(
     isRunning: activeTimer?.status === "running",
     remaining: activeTimer ? remaining : 0,
     reset: () => control("reset"),
+    setMinutes,
     status: activeTimer?.status ?? null,
     timer: activeTimer,
     toggle: () => control(activeTimer?.status === "running" ? "pause" : "start"),

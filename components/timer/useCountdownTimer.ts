@@ -7,6 +7,7 @@ export type TimerStatus = "idle" | "running" | "paused" | "completed";
 const UPDATE_INTERVAL_MS = 250;
 
 export default function useCountdownTimer(initialSeconds: number) {
+  const [durationSeconds, setDurationSeconds] = useState(initialSeconds);
   const [remaining, setRemaining] = useState(initialSeconds);
   const [status, setStatus] = useState<TimerStatus>("idle");
   const endAtRef = useRef<number | null>(null);
@@ -68,14 +69,22 @@ export default function useCountdownTimer(initialSeconds: number) {
 
   function reset() {
     endAtRef.current = null;
-    setRemaining(initialSeconds);
+    setRemaining(durationSeconds);
     setStatus("idle");
+  }
+
+  function setMinutes(minutes: number) {
+    if (status !== "idle" || !Number.isInteger(minutes) || minutes < 1 || minutes > 99) return;
+    const nextDurationSeconds = minutes * 60;
+    setDurationSeconds(nextDurationSeconds);
+    setRemaining(nextDurationSeconds);
   }
 
   return {
     remaining,
     status,
     isRunning: status === "running",
+    setMinutes,
     toggle,
     reset,
   };
