@@ -37,6 +37,8 @@ export default function TimerWorkspace() {
   const onlineUsers = useRoomPresence(roomsState.currentRoomId, user, supabase);
   const participantState = useRoomParticipants(roomsState.currentRoomId, onlineUsers, supabase);
   const profile = useProfileData(user, roomsState.currentRoomId, supabase);
+  const { loadParticipants } = participantState;
+  const { loadProfile } = profile;
   const [clickEffects, setClickEffects] = useState<ClickEffect[]>([]);
   const nextEffectId = useRef(0);
 
@@ -56,14 +58,24 @@ export default function TimerWorkspace() {
     : null;
 
   useEffect(() => {
-    if (!sharedTimer.timer || sharedTimer.timer.status === "running") return;
-    void profile.loadProfile();
-    void participantState.loadParticipants();
+    if (sharedTimer.status === null || sharedTimer.status === "running") return;
+    void loadProfile();
+    void loadParticipants();
   }, [
-    participantState.loadParticipants,
-    profile.loadProfile,
+    loadParticipants,
+    loadProfile,
     sharedTimer.timer?.revision,
-    sharedTimer.timer?.status,
+    sharedTimer.status,
+  ]);
+
+  useEffect(() => {
+    if (sharedTimer.accountingVersion === 0) return;
+    void loadProfile();
+    void loadParticipants();
+  }, [
+    loadParticipants,
+    loadProfile,
+    sharedTimer.accountingVersion,
   ]);
 
   function togglePanel(panel: PanelId) {

@@ -25,16 +25,26 @@ export default function useRoomTimer(
   const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState("");
   const [workSession, setWorkSession] = useState<ClientWorkSession | null>(null);
+  const [accountingVersion, setAccountingVersion] = useState(0);
   const serverOffsetRef = useRef(0);
   const finalizedRevisionRef = useRef<number | null>(null);
+  const controlRequestRef = useRef(0);
+  const workSessionQueueRef = useRef<Promise<void>>(Promise.resolve());
   const selectedRoomIdRef = useRef(roomId);
-  selectedRoomIdRef.current = roomId;
   const activeTimer = timer?.room_id === roomId ? timer : null;
   const workSessionStartedAt = activeTimer?.status === "running"
     && workSession?.roomId === roomId
     && workSession.revision === activeTimer.revision
     ? workSession.startedAt
     : null;
+
+  useEffect(() => {
+    selectedRoomIdRef.current = roomId;
+
+    return () => {
+      if (selectedRoomIdRef.current === roomId) selectedRoomIdRef.current = null;
+    };
+  }, [roomId]);
 
   const applyResponse = useCallback((response: TimerResponse) => {
     if (response.timer.room_id !== selectedRoomIdRef.current) return;
@@ -53,6 +63,7 @@ export default function useRoomTimer(
 
   const control = useCallback(async (action: TimerAction) => {
     if (!roomId) return;
+    const requestId = ++controlRequestRef.current;
     setIsMutating(true);
     setError("");
 
@@ -61,10 +72,7 @@ export default function useRoomTimer(
       target_room_id: roomId,
     });
 
-    if (selectedRoomIdRef.current !== roomId) {
-      setIsMutating(false);
-      return;
-    }
+    if (selectedRoomIdRef.current !== roomId) return;
 
     if (rpcError) {
       setError(rpcError.message);
@@ -72,7 +80,7 @@ export default function useRoomTimer(
       applyResponse(data);
     }
 
-    setIsMutating(false);
+    if (controlRequestRef.current === requestId) setIsMutating(false);
   }, [applyResponse, roomId, supabase]);
 
   useEffect(() => {
@@ -85,9 +93,11 @@ export default function useRoomTimer(
     }
 
     let isMounted = true;
+    controlRequestRef.current += 1;
     setTimer(null);
     setRemaining(0);
     setIsLoading(true);
+    setIsMutating(false);
     setError("");
     serverOffsetRef.current = 0;
     finalizedRevisionRef.current = null;
@@ -171,22 +181,29 @@ export default function useRoomTimer(
     const sessionRoomId = roomId;
     const timerRevision = activeTimer.revision;
 
-    async function startWorkSession() {
-      const requestedAt = new Date().toISOString();
+    const startTask = workSessionQueueRef.current.then(async () => {
+      if (!isCurrent || selectedRoomIdRef.current !== sessionRoomId) return;
+
       const { data: sessionId, error: sessionError } = await supabase.rpc("start_work_session", {
         target_room_id: sessionRoomId,
       });
 
-      if (isCurrent && selectedRoomIdRef.current === sessionRoomId && sessionError) {
+      if (!isCurrent || selectedRoomIdRef.current !== sessionRoomId) return;
+
+      if (sessionError) {
         setError(`作業時間の計測を開始できませんでした: ${sessionError.message}`);
-      } else if (isCurrent && selectedRoomIdRef.current === sessionRoomId && typeof sessionId === "string") {
-        setWorkSession({ revision: timerRevision, roomId: sessionRoomId, startedAt: requestedAt });
-      } else if (isCurrent && selectedRoomIdRef.current === sessionRoomId) {
+      } else if (typeof sessionId === "string") {
+        setWorkSession({
+          revision: timerRevision,
+          roomId: sessionRoomId,
+          startedAt: new Date().toISOString(),
+        });
+      } else {
         setError("作業時間の計測セッションを開始できませんでした");
       }
-    }
+    });
 
-    void startWorkSession();
+    workSessionQueueRef.current = startTask.catch(() => undefined);
     const heartbeat = window.setInterval(() => {
       void supabase
         .rpc("heartbeat_work_session", { target_room_id: sessionRoomId })
@@ -200,17 +217,29 @@ export default function useRoomTimer(
     return () => {
       isCurrent = false;
       window.clearInterval(heartbeat);
+      setWorkSession((current) => current?.roomId === sessionRoomId ? null : current);
 
-      if (selectedRoomIdRef.current !== sessionRoomId) {
-        void supabase.rpc("close_work_session", {
+      const closeTask = workSessionQueueRef.current.then(async () => {
+        if (selectedRoomIdRef.current === sessionRoomId) return;
+
+        const { error: closeError } = await supabase.rpc("close_work_session", {
           target_reason: "room_switch",
           target_room_id: sessionRoomId,
         });
-      }
+
+        if (closeError) {
+          setError(`切替前のルームの作業時間を確定できませんでした: ${closeError.message}`);
+          return;
+        }
+
+        setAccountingVersion((current) => current + 1);
+      });
+      workSessionQueueRef.current = closeTask.catch(() => undefined);
     };
   }, [activeTimer?.revision, activeTimer?.status, roomId, supabase, userId]);
 
   return {
+    accountingVersion,
     control,
     error,
     isLoading: isLoading || Boolean(roomId && userId && !activeTimer),
