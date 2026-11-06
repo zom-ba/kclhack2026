@@ -25,11 +25,21 @@ export default function useRoomTimer(
   const [error, setError] = useState("");
   const serverOffsetRef = useRef(0);
   const finalizedRevisionRef = useRef<number | null>(null);
+  const selectedRoomIdRef = useRef(roomId);
+  selectedRoomIdRef.current = roomId;
+  const activeTimer = timer?.room_id === roomId ? timer : null;
 
   const applyResponse = useCallback((response: TimerResponse) => {
+    if (response.timer.room_id !== selectedRoomIdRef.current) return;
+
     serverOffsetRef.current = new Date(response.server_now).getTime() - Date.now();
     setTimer((current) => {
-      if (current && current.revision > response.timer.revision) return current;
+      if (
+        current?.room_id === response.timer.room_id
+        && current.revision > response.timer.revision
+      ) {
+        return current;
+      }
       return response.timer;
     });
   }, []);
@@ -44,9 +54,14 @@ export default function useRoomTimer(
       target_room_id: roomId,
     });
 
+    if (selectedRoomIdRef.current !== roomId) {
+      setIsMutating(false);
+      return;
+    }
+
     if (rpcError) {
       setError(rpcError.message);
-    } else if (isTimerResponse(data)) {
+    } else if (isTimerResponse(data) && data.timer.room_id === roomId) {
       applyResponse(data);
     }
 
@@ -57,17 +72,24 @@ export default function useRoomTimer(
     if (!roomId || !userId) {
       setTimer(null);
       setRemaining(0);
+      setIsLoading(false);
+      setError("");
       return;
     }
 
     let isMounted = true;
+    setTimer(null);
+    setRemaining(0);
     setIsLoading(true);
     setError("");
+    serverOffsetRef.current = 0;
+    finalizedRevisionRef.current = null;
 
     supabase.rpc("get_room_timer", { target_room_id: roomId }).then(({ data, error: rpcError }) => {
       if (!isMounted) return;
       if (rpcError) setError(rpcError.message);
-      else if (isTimerResponse(data)) applyResponse(data);
+      else if (isTimerResponse(data) && data.timer.room_id === roomId) applyResponse(data);
+      else setError("ルームのタイマー情報を取得できませんでした");
       setIsLoading(false);
     });
 
@@ -83,8 +105,14 @@ export default function useRoomTimer(
         },
         (payload) => {
           const nextTimer = payload.new as SharedTimer;
+          if (nextTimer.room_id !== selectedRoomIdRef.current) return;
           setTimer((current) => {
-            if (current && current.revision >= nextTimer.revision) return current;
+            if (
+              current?.room_id === nextTimer.room_id
+              && current.revision >= nextTimer.revision
+            ) {
+              return current;
+            }
             return nextTimer;
           });
         },
@@ -98,10 +126,10 @@ export default function useRoomTimer(
   }, [applyResponse, roomId, supabase, userId]);
 
   useEffect(() => {
-    if (!timer) return;
+    if (!activeTimer) return;
 
-    if (timer.status !== "running" || !timer.ends_at) {
-      setRemaining(timer.remaining_seconds);
+    if (activeTimer.status !== "running" || !activeTimer.ends_at) {
+      setRemaining(activeTimer.remaining_seconds);
       return;
     }
 
@@ -109,12 +137,12 @@ export default function useRoomTimer(
       const serverNow = Date.now() + serverOffsetRef.current;
       const nextRemaining = Math.max(
         0,
-        Math.ceil((new Date(timer!.ends_at!).getTime() - serverNow) / 1000),
+        Math.ceil((new Date(activeTimer!.ends_at!).getTime() - serverNow) / 1000),
       );
       setRemaining(nextRemaining);
 
-      if (nextRemaining === 0 && finalizedRevisionRef.current !== timer!.revision) {
-        finalizedRevisionRef.current = timer!.revision;
+      if (nextRemaining === 0 && finalizedRevisionRef.current !== activeTimer!.revision) {
+        finalizedRevisionRef.current = activeTimer!.revision;
         void control("finalize");
       }
     }
@@ -127,10 +155,10 @@ export default function useRoomTimer(
       window.clearInterval(interval);
       document.removeEventListener("visibilitychange", updateRemaining);
     };
-  }, [control, timer]);
+  }, [activeTimer, control]);
 
   useEffect(() => {
-    if (!roomId || !userId || timer?.status !== "running") return;
+    if (!roomId || !userId || activeTimer?.status !== "running") return;
 
     void supabase.rpc("start_work_session", { target_room_id: roomId });
     const heartbeat = window.setInterval(() => {
@@ -140,18 +168,18 @@ export default function useRoomTimer(
     return () => {
       window.clearInterval(heartbeat);
     };
-  }, [roomId, supabase, timer?.revision, timer?.status, userId]);
+  }, [activeTimer?.revision, activeTimer?.status, roomId, supabase, userId]);
 
   return {
     control,
     error,
-    isLoading,
+    isLoading: isLoading || Boolean(roomId && userId && !activeTimer),
     isMutating,
-    isRunning: timer?.status === "running",
-    remaining,
+    isRunning: activeTimer?.status === "running",
+    remaining: activeTimer ? remaining : 0,
     reset: () => control("reset"),
-    status: timer?.status ?? null,
-    timer,
-    toggle: () => control(timer?.status === "running" ? "pause" : "start"),
+    status: activeTimer?.status ?? null,
+    timer: activeTimer,
+    toggle: () => control(activeTimer?.status === "running" ? "pause" : "start"),
   };
 }

@@ -2,13 +2,13 @@
 
 :root {
   color-scheme: light;
-  --ink: #000000;
-  --paper: #ffffff;
-  --panel: #ffffff;
-  --line: #000000;
-  --muted: #000000;
-  --dim: #000000;
-  --accent: #ddddff;
+  --ink: #4a4a6a;
+  --paper: #fff9d9;
+  --panel: #fff9d9;
+  --line: #4a4a6a;
+  --muted: #4a4a6a;
+  --dim: #4a4a6a;
+  --accent: #ab9c9c;
   --serif: "Source Han Serif", "Source Han Serif JP", "Noto Serif JP", "IPAex Mincho", serif;
 }
 
