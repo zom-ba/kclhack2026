@@ -5,6 +5,7 @@ import AuthDialog from "@/components/auth/AuthDialog";
 import useAuth from "@/components/auth/useAuth";
 import Navigation, { type PanelId } from "@/components/timer/Navigation";
 import SidePanel from "@/components/timer/SidePanel";
+import UserAvatar from "@/components/timer/UserAvatar";
 import useCountdownTimer from "@/components/timer/useCountdownTimer";
 import useProfileData from "@/components/timer/useProfileData";
 import useRoomParticipants from "@/components/timer/useRoomParticipants";
@@ -49,7 +50,7 @@ export default function TimerWorkspace() {
     || (typeof user?.user_metadata.display_name === "string" ? user.user_metadata.display_name : "")
     || user?.email?.split("@")[0]
     || "ログイン";
-  const avatarText = user ? displayName.slice(0, 1).toUpperCase() : "·";
+  const avatarSeed = user?.id ?? "guest";
   const timerSegmentStartedAt = sharedTimer.timer?.status === "running" && sharedTimer.timer.ends_at
     ? new Date(
       new Date(sharedTimer.timer.ends_at).getTime()
@@ -153,7 +154,8 @@ export default function TimerWorkspace() {
           EveryTick
         </a>
         <button className="account-button" onClick={() => setIsAuthOpen(true)} type="button">
-          <span className="mini-avatar">{avatarText}</span><span>{isAuthLoading ? "..." : displayName}</span>
+          <UserAvatar className="mini-avatar" seed={avatarSeed} />
+          <span>{isAuthLoading ? "..." : displayName}</span>
         </button>
       </header>
 
@@ -217,6 +219,7 @@ export default function TimerWorkspace() {
             activePanel={activePanel}
             activeWorkStartedAt={sharedTimer.workSessionStartedAt}
             allRoomsSeconds={profile.allRoomsSeconds}
+            avatarSeed={avatarSeed}
             bio={profile.bio}
             currentRoom={roomsState.currentRoom}
             currentRoomSeconds={profile.currentRoomSeconds}

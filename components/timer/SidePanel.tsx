@@ -10,6 +10,7 @@ type SidePanelProps = {
   activePanel: PanelId | null;
   activeWorkStartedAt: string | null;
   allRoomsSeconds: number;
+  avatarSeed: string;
   bio: string | null;
   currentRoom: RoomSummary | null;
   currentRoomSeconds: number;
@@ -40,6 +41,7 @@ export default function SidePanel({
   activePanel,
   activeWorkStartedAt,
   allRoomsSeconds,
+  avatarSeed,
   bio,
   currentRoom,
   currentRoomSeconds,
@@ -88,6 +90,7 @@ export default function SidePanel({
       <ProfilePanel
         activeWorkStartedAt={activeWorkStartedAt}
         allRoomsSeconds={allRoomsSeconds}
+        avatarSeed={avatarSeed}
         bio={bio}
         currentRoomCode={currentRoom?.roomCode ?? null}
         currentRoomSeconds={currentRoomSeconds}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 import type { RoomSummary } from "@/components/timer/types";
 
@@ -30,6 +30,7 @@ export default function useRooms(user: User | null, supabase: SupabaseClient) {
   const [isLoading, setIsLoading] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
   const [error, setError] = useState("");
+  const mutationInFlightRef = useRef(false);
 
   const selectRoom = useCallback((roomId: string | null) => {
     setCurrentRoomId(roomId);
@@ -61,7 +62,13 @@ export default function useRooms(user: User | null, supabase: SupabaseClient) {
       return;
     }
 
-    const memberships = (membershipData ?? []) as MembershipRow[];
+    const membershipByRoom = new Map<string, MembershipRow>();
+    for (const membership of (membershipData ?? []) as MembershipRow[]) {
+      if (!membershipByRoom.has(membership.room_id)) {
+        membershipByRoom.set(membership.room_id, membership);
+      }
+    }
+    const memberships = [...membershipByRoom.values()];
     if (memberships.length === 0) {
       setRooms([]);
       setCurrentRoomId(null);
@@ -107,47 +114,60 @@ export default function useRooms(user: User | null, supabase: SupabaseClient) {
   }, [loadRooms]);
 
   async function createRoom() {
-    if (!user || isMutating) return;
+    if (!user || mutationInFlightRef.current) return;
+    mutationInFlightRef.current = true;
     setIsMutating(true);
     setError("");
 
-    const { data, error: rpcError } = await supabase.rpc("create_room");
-    if (rpcError) {
-      setError(rpcError.message);
-      setIsMutating(false);
-      return;
-    }
+    try {
+      const { data, error: rpcError } = await supabase.rpc("create_room");
+      if (rpcError) {
+        setError(rpcError.message);
+        return;
+      }
 
-    const createdRoom = firstRpcRow(data);
-    await loadRooms();
-    if (createdRoom) selectRoom(createdRoom.room_id);
-    setIsMutating(false);
+      const createdRoom = firstRpcRow(data);
+      await loadRooms();
+      if (createdRoom) selectRoom(createdRoom.room_id);
+    } finally {
+      mutationInFlightRef.current = false;
+      setIsMutating(false);
+    }
   }
 
   async function joinRoom(roomCode: string) {
-    if (!user || isMutating) return false;
+    if (!user || mutationInFlightRef.current) return false;
     if (!/^\d{4}$/.test(roomCode)) {
       setError("ルーム番号は4桁の数字で入力してください");
       return false;
     }
 
+    mutationInFlightRef.current = true;
     setIsMutating(true);
     setError("");
-    const { data, error: rpcError } = await supabase.rpc("join_room", {
-      target_room_code: roomCode,
-    });
+    try {
+      const { data, error: rpcError } = await supabase.rpc("join_room", {
+        target_room_code: roomCode,
+      });
 
-    if (rpcError) {
-      setError(rpcError.message);
+      if (rpcError) {
+        setError(rpcError.message);
+        return false;
+      }
+
+      const joinedRoom = firstRpcRow(data);
+      if (!joinedRoom) {
+        setError("参加したルームの情報を取得できませんでした");
+        return false;
+      }
+
+      await loadRooms();
+      selectRoom(joinedRoom.room_id);
+      return true;
+    } finally {
+      mutationInFlightRef.current = false;
       setIsMutating(false);
-      return false;
     }
-
-    const joinedRoom = firstRpcRow(data);
-    await loadRooms();
-    if (joinedRoom) selectRoom(joinedRoom.room_id);
-    setIsMutating(false);
-    return true;
   }
 
   return {

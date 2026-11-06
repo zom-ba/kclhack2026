@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import formatDuration from "@/components/timer/formatDuration";
+import UserAvatar from "@/components/timer/UserAvatar";
 import type { RoomParticipant, RoomSummary } from "@/components/timer/types";
 
 type ParticipantsPanelProps = {
@@ -47,10 +48,6 @@ export default function ParticipantsPanel({
     0,
   );
 
-  async function copyRoomCode() {
-    if (currentRoom) await navigator.clipboard.writeText(currentRoom.roomCode);
-  }
-
   return (
     <div className="participants-panel">
       <div className="participant-summary">
@@ -59,9 +56,9 @@ export default function ParticipantsPanel({
         <span className="live-indicator"><span className="status-dot" /> 参加中</span>
       </div>
       <div className="participant-list">
-        {participants.map((person, index) => (
+        {participants.map((person) => (
           <article className="participant-row" key={person.userId}>
-            <div className={`avatar avatar-${index + 1}`}>{person.displayName.slice(0, 1)}</div>
+            <UserAvatar className="avatar" seed={person.userId} />
             <div className="participant-details">
               <strong>{person.displayName}</strong>
               <span>{person.isOnline ? "オンライン" : "オフライン"}</span>
@@ -80,7 +77,6 @@ export default function ParticipantsPanel({
         <p>参加者それぞれの作業時間の合計</p>
       </div>
       {error ? <p className="panel-error" role="status">{error}</p> : null}
-      <button className="text-action" disabled={!currentRoom} onClick={() => void copyRoomCode()} type="button">＋ ルーム番号をコピー</button>
     </div>
   );
 }

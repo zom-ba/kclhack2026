@@ -64,7 +64,9 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 1px solid 
 .wordmark { display: flex; align-items: center; color: var(--ink); text-decoration: none; font: 600 18px var(--serif); letter-spacing: 0; }
 .status-dot { width: 6px; height: 6px; display: inline-block; border-radius: 50%; background: var(--accent); vertical-align: 1px; }
 .account-button { display: flex; align-items: center; gap: 10px; border: 0; background: transparent; color: var(--ink); font-size: 12px; cursor: pointer; }
-.mini-avatar { display: grid; place-items: center; width: 27px; height: 27px; color: var(--accent); font: 8px var(--serif); }
+.user-avatar { display: grid; place-items: end center; flex: 0 0 auto; overflow: hidden; border-radius: 50%; background: var(--avatar-background); color: #f8f8ff; }
+.user-avatar svg { display: block; width: 78%; height: 100%; overflow: visible; fill: currentColor; }
+.mini-avatar { width: 27px; height: 27px; }
 
 .work-area { display: flex; flex: 1; min-height: 0; position: relative; }
 .timer-stage { --timer-actions-gap: 20px; flex: 1 1 auto; min-width: 0; display: flex; flex-direction: column; position: relative; }
@@ -159,8 +161,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 1px solid 
 .live-indicator { color: var(--muted); font: 8px var(--serif); letter-spacing: .1em; }
 .live-indicator .status-dot { width: 5px; height: 5px; margin-right: 4px; }
 .participant-row { display: grid; grid-template-columns: 34px 1fr auto; gap: 10px; align-items: center; padding: 15px 0; }
-.avatar { width: 32px; height: 32px; display: grid; place-items: center; color: var(--accent); font: 8px var(--serif); }
-.avatar-2, .avatar-3 { color: var(--ink); }
+.avatar { width: 32px; height: 32px; }
 .participant-details, .participant-time { display: flex; flex-direction: column; gap: 5px; }
 .participant-details strong { color: var(--ink); font-size: 11px; font-weight: 400; }
 .participant-details span, .participant-time span { color: var(--muted); font: 7px var(--serif); letter-spacing: .06em; }
@@ -172,8 +173,7 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 1px solid 
 .room-total p { margin: 0; color: var(--muted); font-size: 9px; }
 
 .profile-panel { text-align: center; }
-.profile-portrait { width: 72px; height: 72px; margin: 0 auto 14px; display: grid; place-items: center; }
-.profile-portrait span { position: relative; z-index: 1; background: var(--panel); padding: 4px; color: var(--accent); font: 13px var(--serif); }
+.profile-portrait { width: 72px; height: 72px; margin: 0 auto 14px; }
 .profile-name h3 { margin: 0 0 6px; font-size: 18px; font-weight: 400; }
 .profile-name span { color: var(--muted); font: 8px var(--serif); letter-spacing: .1em; }
 .profile-stats { text-align: left; border-top: 1px solid var(--line); }

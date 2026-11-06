@@ -2,10 +2,12 @@
 
 import { useEffect, useState, type FormEvent } from "react";
 import formatDuration from "@/components/timer/formatDuration";
+import UserAvatar from "@/components/timer/UserAvatar";
 
 type ProfilePanelProps = {
   activeWorkStartedAt: string | null;
   allRoomsSeconds: number;
+  avatarSeed: string;
   bio: string | null;
   currentRoomCode: string | null;
   currentRoomSeconds: number;
@@ -18,6 +20,7 @@ type ProfilePanelProps = {
 export default function ProfilePanel({
   activeWorkStartedAt,
   allRoomsSeconds,
+  avatarSeed,
   bio,
   currentRoomCode,
   currentRoomSeconds,
@@ -31,8 +34,6 @@ export default function ProfilePanel({
   const [bioInput, setBioInput] = useState(bio ?? "");
   const [message, setMessage] = useState("");
   const [now, setNow] = useState(() => Date.now());
-  const initials = displayName.slice(0, 2).toUpperCase();
-
   const activeSeconds = activeWorkStartedAt
     ? Math.max(0, Math.floor((now - new Date(activeWorkStartedAt).getTime()) / 1000))
     : 0;
@@ -59,7 +60,7 @@ export default function ProfilePanel({
 
   return (
     <div className="profile-panel">
-      <div className="profile-portrait" aria-hidden="true"><span>{initials || "--"}</span></div>
+      <UserAvatar className="profile-portrait" seed={avatarSeed} />
       <div className="profile-name">
         <h3>{isLoggedIn ? displayName || "ユーザー" : "未ログイン"}</h3>
         {bio ? <span>{bio}</span> : null}
