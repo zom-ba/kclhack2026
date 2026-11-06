@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState, type CSSProperties, type PointerEvent } from "react";
+import { useEffect, useRef, useState, type CSSProperties, type PointerEvent } from "react";
 import AuthDialog from "@/components/auth/AuthDialog";
 import useAuth from "@/components/auth/useAuth";
 import Navigation, { type PanelId } from "@/components/timer/Navigation";
@@ -54,6 +54,17 @@ export default function TimerWorkspace() {
       - sharedTimer.timer.remaining_seconds * 1000,
     ).toISOString()
     : null;
+
+  useEffect(() => {
+    if (!sharedTimer.timer || sharedTimer.timer.status === "running") return;
+    void profile.loadProfile();
+    void participantState.loadParticipants();
+  }, [
+    participantState.loadParticipants,
+    profile.loadProfile,
+    sharedTimer.timer?.revision,
+    sharedTimer.timer?.status,
+  ]);
 
   function togglePanel(panel: PanelId) {
     setActivePanel((current) => current === panel ? null : panel);
@@ -192,6 +203,7 @@ export default function TimerWorkspace() {
           <Navigation activePanel={activePanel} onSelect={togglePanel} />
           <SidePanel
             activePanel={activePanel}
+            activeWorkStartedAt={sharedTimer.workSessionStartedAt}
             allRoomsSeconds={profile.allRoomsSeconds}
             bio={profile.bio}
             currentRoom={roomsState.currentRoom}
@@ -206,6 +218,7 @@ export default function TimerWorkspace() {
             onUpdateProfile={profile.updateProfile}
             participantError={participantState.error}
             participants={participantState.participants}
+            profileError={profile.error}
             roomError={roomsState.error}
             rooms={roomsState.rooms}
             roomTotalSeconds={participantState.roomTotalSeconds}

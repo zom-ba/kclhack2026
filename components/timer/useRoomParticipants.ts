@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import type { OnlinePresence, RoomParticipant } from "@/components/timer/types";
 
@@ -22,6 +22,8 @@ export default function useRoomParticipants(
 ) {
   const [participants, setParticipants] = useState<RoomParticipant[]>([]);
   const [error, setError] = useState("");
+  const selectedRoomIdRef = useRef(roomId);
+  selectedRoomIdRef.current = roomId;
 
   const loadParticipants = useCallback(async () => {
     if (!roomId) {
@@ -33,6 +35,8 @@ export default function useRoomParticipants(
       .from("room_memberships")
       .select("user_id")
       .eq("room_id", roomId);
+
+    if (selectedRoomIdRef.current !== roomId) return;
 
     if (membershipError) {
       setError(membershipError.message);
@@ -49,6 +53,8 @@ export default function useRoomParticipants(
       supabase.from("profiles").select("user_id, display_name, avatar_url").in("user_id", userIds),
       supabase.from("user_records").select("user_id, accumulated_seconds").eq("room_id", roomId),
     ]);
+
+    if (selectedRoomIdRef.current !== roomId) return;
 
     if (profilesResult.error || recordsResult.error) {
       setError(profilesResult.error?.message ?? recordsResult.error?.message ?? "参加者を取得できませんでした");
@@ -74,6 +80,8 @@ export default function useRoomParticipants(
   }, [roomId, supabase]);
 
   useEffect(() => {
+    setParticipants([]);
+    setError("");
     void loadParticipants();
     if (!roomId) return;
 
@@ -108,6 +116,7 @@ export default function useRoomParticipants(
 
   return {
     error,
+    loadParticipants,
     participants: participantsWithPresence,
     roomTotalSeconds: participants.reduce(
       (total, participant) => total + participant.accumulatedSeconds,

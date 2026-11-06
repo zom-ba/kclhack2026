@@ -4,21 +4,25 @@ import { useEffect, useState, type FormEvent } from "react";
 import formatDuration from "@/components/timer/formatDuration";
 
 type ProfilePanelProps = {
+  activeWorkStartedAt: string | null;
   allRoomsSeconds: number;
   bio: string | null;
   currentRoomCode: string | null;
   currentRoomSeconds: number;
   displayName: string;
+  error: string;
   isLoggedIn: boolean;
   onUpdate: (displayName: string, bio: string) => Promise<boolean>;
 };
 
 export default function ProfilePanel({
+  activeWorkStartedAt,
   allRoomsSeconds,
   bio,
   currentRoomCode,
   currentRoomSeconds,
   displayName,
+  error,
   isLoggedIn,
   onUpdate,
 }: ProfilePanelProps) {
@@ -26,12 +30,24 @@ export default function ProfilePanel({
   const [nameInput, setNameInput] = useState(displayName);
   const [bioInput, setBioInput] = useState(bio ?? "");
   const [message, setMessage] = useState("");
+  const [now, setNow] = useState(() => Date.now());
   const initials = displayName.slice(0, 2).toUpperCase();
+
+  const activeSeconds = activeWorkStartedAt
+    ? Math.max(0, Math.floor((now - new Date(activeWorkStartedAt).getTime()) / 1000))
+    : 0;
 
   useEffect(() => {
     setNameInput(displayName);
     setBioInput(bio ?? "");
   }, [bio, displayName]);
+
+  useEffect(() => {
+    if (!activeWorkStartedAt) return;
+
+    const interval = window.setInterval(() => setNow(Date.now()), 1000);
+    return () => window.clearInterval(interval);
+  }, [activeWorkStartedAt]);
 
   async function saveProfile(event: FormEvent<HTMLFormElement>) {
     event.preventDefault();
@@ -58,17 +74,18 @@ export default function ProfilePanel({
       <div className="profile-stats">
         <div>
           <span className="field-label">全ルームの合計</span>
-          <strong>{formatDuration(allRoomsSeconds)}</strong>
+          <strong>{formatDuration(allRoomsSeconds + activeSeconds)}</strong>
           <small>すべてのルーム</small>
         </div>
         <div>
           <span className="field-label">このルームの合計</span>
-          <strong>{formatDuration(currentRoomSeconds)}</strong>
+          <strong>{formatDuration(currentRoomSeconds + activeSeconds)}</strong>
           <small>{currentRoomCode ? `ルーム ${currentRoomCode}` : "ルーム未選択"}</small>
         </div>
       </div>
       {isLoggedIn ? <button className="text-action" onClick={() => setIsEditing((current) => !current)} type="button">＋ プロフィールを編集</button> : null}
       {message ? <p className="panel-error" role="status">{message}</p> : null}
+      {error ? <p className="panel-error" role="status">{error}</p> : null}
     </div>
   );
 }

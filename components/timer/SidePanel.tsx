@@ -8,6 +8,7 @@ import type { RoomParticipant, RoomSummary } from "@/components/timer/types";
 
 type SidePanelProps = {
   activePanel: PanelId | null;
+  activeWorkStartedAt: string | null;
   allRoomsSeconds: number;
   bio: string | null;
   currentRoom: RoomSummary | null;
@@ -22,6 +23,7 @@ type SidePanelProps = {
   onUpdateProfile: (displayName: string, bio: string) => Promise<boolean>;
   participantError: string;
   participants: RoomParticipant[];
+  profileError: string;
   roomError: string;
   rooms: RoomSummary[];
   roomTotalSeconds: number;
@@ -36,6 +38,7 @@ const panelTitles: Record<PanelId, string> = {
 
 export default function SidePanel({
   activePanel,
+  activeWorkStartedAt,
   allRoomsSeconds,
   bio,
   currentRoom,
@@ -50,6 +53,7 @@ export default function SidePanel({
   onUpdateProfile,
   participantError,
   participants,
+  profileError,
   roomError,
   rooms,
   roomTotalSeconds,
@@ -82,11 +86,13 @@ export default function SidePanel({
     ),
     profile: (
       <ProfilePanel
+        activeWorkStartedAt={activeWorkStartedAt}
         allRoomsSeconds={allRoomsSeconds}
         bio={bio}
         currentRoomCode={currentRoom?.roomCode ?? null}
         currentRoomSeconds={currentRoomSeconds}
         displayName={displayName}
+        error={profileError}
         isLoggedIn={isLoggedIn}
         onUpdate={onUpdateProfile}
       />

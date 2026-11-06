@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import type { SupabaseClient, User } from "@supabase/supabase-js";
 
 type ProfileRow = {
@@ -24,6 +24,11 @@ export default function useProfileData(
   const [bio, setBio] = useState<string | null>(null);
   const [allRoomsSeconds, setAllRoomsSeconds] = useState(0);
   const [currentRoomSeconds, setCurrentRoomSeconds] = useState(0);
+  const [error, setError] = useState("");
+  const currentRoomIdRef = useRef(currentRoomId);
+  const userIdRef = useRef(user?.id ?? null);
+  currentRoomIdRef.current = currentRoomId;
+  userIdRef.current = user?.id ?? null;
 
   const loadProfile = useCallback(async () => {
     if (!user) {
@@ -32,13 +37,33 @@ export default function useProfileData(
       setBio(null);
       setAllRoomsSeconds(0);
       setCurrentRoomSeconds(0);
+      setError("");
       return;
     }
+
+    const requestedRoomId = currentRoomId;
+    const requestedUserId = user.id;
 
     const [profileResult, recordsResult] = await Promise.all([
       supabase.from("profiles").select("display_name, avatar_url, bio").eq("user_id", user.id).maybeSingle(),
       supabase.from("user_records").select("room_id, accumulated_seconds").eq("user_id", user.id),
     ]);
+
+    if (
+      userIdRef.current !== requestedUserId
+      || currentRoomIdRef.current !== requestedRoomId
+    ) {
+      return;
+    }
+
+    if (profileResult.error || recordsResult.error) {
+      setError(
+        profileResult.error?.message
+        ?? recordsResult.error?.message
+        ?? "プロフィール情報を取得できませんでした",
+      );
+      return;
+    }
 
     if (profileResult.data) {
       const profile = profileResult.data as ProfileRow;
@@ -52,11 +77,31 @@ export default function useProfileData(
     setCurrentRoomSeconds(
       records.find(({ room_id }) => room_id === currentRoomId)?.accumulated_seconds ?? 0,
     );
+    setError("");
   }, [currentRoomId, supabase, user]);
 
   useEffect(() => {
     void loadProfile();
-  }, [loadProfile]);
+    if (!user) return;
+
+    const channel = supabase
+      .channel(`profile-records:${user.id}`)
+      .on(
+        "postgres_changes",
+        {
+          event: "UPDATE",
+          schema: "public",
+          table: "user_records",
+          filter: `user_id=eq.${user.id}`,
+        },
+        () => void loadProfile(),
+      )
+      .subscribe();
+
+    return () => {
+      void supabase.removeChannel(channel);
+    };
+  }, [loadProfile, supabase, user]);
 
   async function updateProfile(nextDisplayName: string, nextBio: string) {
     if (!user) return false;
@@ -65,7 +110,10 @@ export default function useProfileData(
       .update({ display_name: nextDisplayName.trim(), bio: nextBio.trim() || null })
       .eq("user_id", user.id);
 
-    if (error) return false;
+    if (error) {
+      setError(error.message);
+      return false;
+    }
     await loadProfile();
     return true;
   }
@@ -76,6 +124,7 @@ export default function useProfileData(
     bio,
     currentRoomSeconds,
     displayName,
+    error,
     loadProfile,
     updateProfile,
   };
