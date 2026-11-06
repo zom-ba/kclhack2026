@@ -23,6 +23,11 @@ type ClickParticleStyle = CSSProperties & {
   "--particle-x": string;
   "--particle-y": string;
 };
+type TimerPlaybackSnapshot = {
+  contextKey: string;
+  isRunning: boolean;
+  remaining: number;
+};
 
 function formatTime(seconds: number) {
   const minutes = Math.floor(seconds / 60).toString().padStart(2, "0");
@@ -44,13 +49,18 @@ export default function TimerWorkspace() {
   const { loadProfile } = profile;
   const [clickEffects, setClickEffects] = useState<ClickEffect[]>([]);
   const nextEffectId = useRef(0);
+  const completionSoundRef = useRef<HTMLAudioElement | null>(null);
+  const completionSoundUnlockedRef = useRef(false);
+  const previousTimerRef = useRef<TimerPlaybackSnapshot | null>(null);
 
   const hasSharedTimer = Boolean(user && roomsState.currentRoom);
   const remaining = hasSharedTimer ? sharedTimer.remaining : guestTimer.remaining;
   const isRunning = hasSharedTimer ? sharedTimer.isRunning : guestTimer.isRunning;
+  const timerContextKey = hasSharedTimer ? `room:${roomsState.currentRoomId}` : "guest";
   const timerStatus = hasSharedTimer ? sharedTimer.status : guestTimer.status;
   const timerMinutes = Math.floor(remaining / 60);
   const canSetTimerMinutes = timerStatus === "idle";
+  const timerHasCompleted = timerStatus !== null && remaining === 0;
   const displayName = profile.displayName
     || (typeof user?.user_metadata.display_name === "string" ? user.user_metadata.display_name : "")
     || user?.email?.split("@")[0]
@@ -62,6 +72,37 @@ export default function TimerWorkspace() {
       - sharedTimer.timer.remaining_seconds * 1000,
     ).toISOString()
     : null;
+
+  useEffect(() => {
+    const previousTimer = previousTimerRef.current;
+    if (
+      previousTimer?.contextKey === timerContextKey
+      && previousTimer.isRunning
+      && previousTimer.remaining > 0
+      && remaining === 0
+    ) {
+      const completionSound = completionSoundRef.current;
+      if (completionSound) {
+        completionSound.currentTime = 0;
+        void completionSound.play().catch(() => undefined);
+      }
+    }
+
+    if (
+      previousTimer?.contextKey === timerContextKey
+      && previousTimer.remaining === 0
+      && remaining > 0
+      && timerStatus === "idle"
+    ) {
+      stopCompletionSound();
+    }
+
+    previousTimerRef.current = {
+      contextKey: timerContextKey,
+      isRunning,
+      remaining,
+    };
+  }, [isRunning, remaining, timerContextKey, timerStatus]);
 
   useEffect(() => {
     if (sharedTimer.status === null || sharedTimer.status === "running") return;
@@ -89,6 +130,7 @@ export default function TimerWorkspace() {
   }
 
   function showClickEffect(event: PointerEvent<HTMLElement>) {
+    unlockCompletionSound();
     const bounds = event.currentTarget.getBoundingClientRect();
     const particleCount = 3 + Math.floor(Math.random() * 3);
     const directionOffset = Math.random() * Math.PI * 2;
@@ -113,12 +155,39 @@ export default function TimerWorkspace() {
     setClickEffects((effects) => [...effects.slice(-7), effect]);
   }
 
+  function unlockCompletionSound() {
+    const completionSound = completionSoundRef.current;
+    if (!completionSound || completionSoundUnlockedRef.current) return;
+
+    completionSoundUnlockedRef.current = true;
+    completionSound.muted = true;
+    void completionSound.play()
+      .then(() => {
+        completionSound.pause();
+        completionSound.currentTime = 0;
+        completionSound.muted = false;
+        completionSoundUnlockedRef.current = true;
+      })
+      .catch(() => {
+        completionSound.muted = false;
+        completionSoundUnlockedRef.current = false;
+      });
+  }
+
+  function stopCompletionSound() {
+    const completionSound = completionSoundRef.current;
+    if (!completionSound) return;
+    completionSound.pause();
+    completionSound.currentTime = 0;
+  }
+
   function toggleTimer() {
     if (hasSharedTimer) void sharedTimer.toggle();
     else guestTimer.toggle();
   }
 
   function resetTimer() {
+    stopCompletionSound();
     if (hasSharedTimer) void sharedTimer.reset();
     else guestTimer.reset();
   }
@@ -214,7 +283,7 @@ export default function TimerWorkspace() {
               ) : null}
               <svg
                 aria-label={formatTime(remaining)}
-                className="timer-display"
+                className={`timer-display${timerHasCompleted ? " is-completed" : ""}`}
                 role="img"
                 viewBox="0 0 700 200"
                 xmlns="http://www.w3.org/2000/svg"
@@ -282,6 +351,7 @@ export default function TimerWorkspace() {
         supabase={supabase}
         user={user}
       />
+      <audio loop preload="auto" ref={completionSoundRef} src="/audio/timer-complete.wav" />
     </main>
   );
 }

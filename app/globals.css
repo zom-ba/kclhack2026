@@ -109,6 +109,11 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 1px solid 
 .timer-circle { position: absolute; z-index: 0; top: 50%; left: 50%; width: min(74%, 470px); aspect-ratio: 1; transform: translate(-50%, -50%); border: 1px solid var(--accent); border-radius: 50%; pointer-events: none; }
 .timer-display { position: relative; z-index: 1; display: block; width: 100%; height: auto; color: var(--ink); overflow: visible; }
 .timer-display text { font-family: var(--serif); font-size: 180px; font-weight: 300; letter-spacing: 0; }
+.timer-display.is-completed { animation: timer-completed-pulse 1s ease-in-out infinite; }
+@keyframes timer-completed-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: .3; }
+}
 .timer-minute-controls { position: absolute; z-index: 3; top: 40%; left: 33.3%; width: 38px; height: 130%; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; justify-content: space-between; pointer-events: none; }
 .timer-minute-control { width: 38px; height: 30px; padding: 0; border: 0; background: transparent; cursor: pointer; pointer-events: auto; }
 .timer-minute-control::before { content: ""; display: block; width: 0; height: 0; margin: auto; border-right: 10px solid transparent; border-left: 10px solid transparent; }
@@ -293,4 +298,5 @@ button:focus-visible, a:focus-visible, input:focus-visible { outline: 1px solid 
 
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+  .timer-display.is-completed { animation: none; }
 }
